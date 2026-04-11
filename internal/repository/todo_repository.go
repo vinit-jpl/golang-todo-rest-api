@@ -90,3 +90,68 @@ func GetAllTodos(pool *pgxpool.Pool) ([]models.Todo, error) {
 
 	return todos, nil
 }
+
+func GetTodoByID(pool *pgxpool.Pool, id int) (*models.Todo, error) {
+	var ctx context.Context
+	var cancle context.CancelFunc
+
+	ctx, cancle = context.WithTimeout(context.Background(), 5*time.Second)
+
+	defer cancle()
+
+	var query string = `
+		SELECT id, title, completed, created_at, updated_at
+		FROM todos
+		where id = $1
+	`
+
+	var todo models.Todo
+
+	var err error = pool.QueryRow(ctx, query, id).Scan( // QueryRow => used when we need single record
+		&todo.ID,
+		&todo.Title,
+		&todo.Completed,
+		&todo.CreatedAt,
+		&todo.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &todo, nil
+}
+
+func UpdateTodo(pool *pgxpool.Pool, id int, title string, completed bool) (*models.Todo, error) {
+	var ctx context.Context
+	var cancel context.CancelFunc
+
+	ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+
+	defer cancel()
+
+	var query string = `
+		UPDATE todos 
+		SET title = $1, completed = $2, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $3
+		RETURNING id, title, completed, created_at, updated_at
+	`
+
+	var todo models.Todo
+
+	// Scan is used to read values from a query result and store them into your variables.
+	var err error = pool.QueryRow(ctx, query, title, completed, id).Scan(
+		&todo.ID,
+		&todo.Title,
+		&todo.Completed,
+		&todo.CreatedAt,
+		&todo.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &todo, nil
+
+}
