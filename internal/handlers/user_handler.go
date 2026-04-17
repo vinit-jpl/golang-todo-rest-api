@@ -20,14 +20,13 @@ type RegisterRequest struct {
 }
 
 type LoginRequest struct {
-	Email string  `json:"email" binding:"required"`
+	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
 type LoginResponse struct {
 	Token string `json:"token"`
 }
-
 
 func CreateUserhandler(pool *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -73,7 +72,7 @@ func CreateUserhandler(pool *pgxpool.Pool) gin.HandlerFunc {
 	}
 }
 
-func Loginhandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc{
+func Loginhandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var loginRequest LoginRequest
 
@@ -86,22 +85,22 @@ func Loginhandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc{
 
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
-			return 
+			return
 		}
 
 		err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(loginRequest.Password))
 
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
-			return 
+			return
 		}
 
 		// create jwt token
 
 		claims := jwt.MapClaims{
 			"user_id": user.ID,
-			"email": user.Email,
-			"exp": time.Now().Add(24 * time.Hour).Unix(),
+			"email":   user.Email,
+			"exp":     time.Now().Add(24 * time.Hour).Unix(),
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -110,9 +109,24 @@ func Loginhandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc{
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate a token: " + err.Error()})
-			return 
+			return
 		}
 
 		c.JSON(http.StatusOK, LoginResponse{Token: tokenString})
+	}
+}
+
+func TestProtectedHandler() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		userId, exists := ctx.Get("user_id")
+
+		if !exists {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "user_id not found in context"})
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{
+			"message": "Protected route accessed successfully",
+			"user_id": userId,
+		})
 	}
 }
